@@ -5,3 +5,5 @@ openai
 PyPDF2
 Pillow
 pytesseract
+httpx
+python-dotenv
