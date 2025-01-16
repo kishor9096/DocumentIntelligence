@@ -7,6 +7,11 @@ import PyPDF2
 from PIL import Image
 import pytesseract
 import io
+import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = FastAPI()
 
@@ -19,11 +24,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Set your Azure OpenAI API key and endpoint
-openai.api_type = "azure"
-openai.api_base = "YOUR_AZURE_OPENAI_ENDPOINT"
-openai.api_key = "YOUR_AZURE_OPENAI_API_KEY"
-openai.api_version = "2023-05-15"  # Update to the latest version if needed
+# Set your Azure OpenAI API settings from environment variables
+openai.api_type = os.getenv("AZURE_OPENAI_API_TYPE")
+openai.api_base = os.getenv("AZURE_OPENAI_API_BASE")
+openai.api_key = os.getenv("AZURE_OPENAI_API_KEY")
+openai.api_version = os.getenv("AZURE_OPENAI_API_VERSION")
 
 def extract_text_from_pdf(file: UploadFile) -> str:
     reader = PyPDF2.PdfReader(file.file)
