@@ -88,12 +88,13 @@ async def upload_file(
 
 async def run_openai_api(prompt: str, text: str):
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(executor, lambda: openai.ChatCompletion.create(
+    response = await loop.run_in_executor(executor, lambda: openai.ChatCompletion.create(
         engine="YOUR_GPT_MODEL_NAME",
         messages=[
             {"role": "user", "content": f"{prompt}\n\n{text}"}
         ]
     ))
+    return response
 
 async def process_file(file_contents: bytes, content_type: str, custom_prompt: str, task_id: str):
     try:
@@ -107,7 +108,7 @@ async def process_file(file_contents: bytes, content_type: str, custom_prompt: s
         else:
             raise ValueError("Unsupported file type")
 
-        #logging.info("Extracted text from file: %s", text[:100])  # Log the first 100 characters of the extracted text
+        logging.info("Extracted text from file: %s", text[:100])  # Log the first 100 characters of the extracted text
 
         # If a custom prompt is provided, call the appropriate model
         if custom_prompt:
@@ -119,8 +120,11 @@ async def process_file(file_contents: bytes, content_type: str, custom_prompt: s
                 task_results[task_id]["result"] = response.choices[0].message['content']
         else:
             # If no custom prompt is provided, identify the document type
-            identify_prompt = f"Identify the type of document based on the following text : \n{text}\n\n Return only the document type and if no document type is identified return other. For Eg: Resume or Driving License"
-            document_type_response = await call_local_ollama_model(identify_prompt, text)
+            identify_prompt = "Return only the document type without any explanation. Identify the type of document based on the following text:\n"
+            if model_type == "ollama":
+                document_type_response = await call_local_ollama_model(identify_prompt, text)  # Use Ollama to identify document type
+            elif model_type == "azure":
+                document_type_response = await run_openai_api(identify_prompt, text)  # Use Azure OpenAI to identify document type
 
             # Assuming the response contains the document type
             document_type = document_type_response.strip().lower()  # Normalize the document type
@@ -128,16 +132,16 @@ async def process_file(file_contents: bytes, content_type: str, custom_prompt: s
 
             # Extract details based on identified document type
             try:
-                if document_type == "resume":
+                if "resume" in document_type:
                     resume_data = Resume.model_validate_json(text)  # Validate against Resume schema
                     task_results[task_id]["result"] = resume_data.model_dump()
-                elif document_type == "invoice":
+                elif "invoice" in document_type:
                     invoice_data = Invoice.model_validate_json(text)  # Validate against Invoice schema
                     task_results[task_id]["result"] = invoice_data.model_dump()
-                elif document_type == "receipt":
+                elif "receipt" in document_type:
                     receipt_data = Receipt.model_validate_json(text)  # Validate against Receipt schema
                     task_results[task_id]["result"] = receipt_data.model_dump()
-                elif document_type == "report":
+                elif "report" in document_type:
                     report_data = Report.model_validate_json(text)  # Validate against Report schema
                     task_results[task_id]["result"] = report_data.model_dump()
                 else:
