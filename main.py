@@ -110,21 +110,30 @@ async def process_file(file_contents: bytes, content_type: str, custom_prompt: s
 
         logging.info("Extracted text from file: %s", text[:100])  # Log the first 100 characters of the extracted text
 
+        # Convert text to English if necessary
+        convert_prompt = f"Translate the following text to English:\n{text}"
+        if model_type == "ollama":
+            translated_text = await call_local_ollama_model(convert_prompt, text)  # Use Ollama for translation
+        elif model_type == "azure":
+            translated_text = await run_openai_api(convert_prompt, text)  # Use Azure OpenAI for translation
+
+        logging.info("Translated text: %s", translated_text[:100])  # Log the first 100 characters of the translated text
+
         # If a custom prompt is provided, call the appropriate model
         if custom_prompt:
             if model_type == "ollama":
-                response = await call_local_ollama_model(custom_prompt, text)  # Await the async call
+                response = await call_local_ollama_model(custom_prompt, translated_text)  # Await the async call
                 task_results[task_id]["result"] = response
             elif model_type == "azure":
-                response = await run_openai_api(custom_prompt, text)  # Await the OpenAI API call
+                response = await run_openai_api(custom_prompt, translated_text)  # Await the OpenAI API call
                 task_results[task_id]["result"] = response.choices[0].message['content']
         else:
             # If no custom prompt is provided, identify the document type
             identify_prompt = "Return only the document type without any explanation. Identify the type of document based on the following text:\n"
             if model_type == "ollama":
-                document_type_response = await call_local_ollama_model(identify_prompt, text)  # Use Ollama to identify document type
+                document_type_response = await call_local_ollama_model(identify_prompt, translated_text)  # Use Ollama to identify document type
             elif model_type == "azure":
-                document_type_response = await run_openai_api(identify_prompt, text)  # Use Azure OpenAI to identify document type
+                document_type_response = await run_openai_api(identify_prompt, translated_text)  # Use Azure OpenAI to identify document type
 
             # Assuming the response contains the document type
             document_type = document_type_response.strip().lower()  # Normalize the document type
